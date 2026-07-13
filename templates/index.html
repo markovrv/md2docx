@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown & AI to Word Converter</title>
+<link rel="stylesheet" href="static/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="toolbar-left">
+    <span class="logo">MD → DOCX</span>
+    <span class="sep">|</span>
+    <span class="subtitle">Markdown & AI to Word Converter</span>
+  </div>
+  <div class="toolbar-right">
+    <button class="btn btn-primary" onclick="downloadDocx()" id="downloadBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Скачать DOCX
+    </button>
+    <button class="btn btn-secondary" onclick="loadSample()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Пример
+    </button>
+    <button class="btn btn-secondary" onclick="clearAll()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      Очистить
+    </button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="panel panel-left">
+    <div class="panel-header">
+      <span>Исходный Markdown</span>
+      <span class="char-count" id="charCount">0 символов</span>
+    </div>
+    <textarea id="editor" spellcheck="false" placeholder="Введите Markdown..."></textarea>
+  </div>
+
+  <div class="resizer" id="resizer"></div>
+
+  <div class="panel panel-right">
+    <div class="panel-header">
+      <span>Форматированный текст</span>
+      <span class="status" id="status">Готов</span>
+    </div>
+    <div class="preview" id="preview">
+      <div class="placeholder">Начните вводить Markdown слева...</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const editor = document.getElementById('editor');
+const preview = document.getElementById('preview');
+const resizer = document.getElementById('resizer');
+const statusEl = document.getElementById('status');
+const charCount = document.getElementById('charCount');
+const downloadBtn = document.getElementById('downloadBtn');
+const toast = document.getElementById('toast');
+
+let renderTimer = null;
+let isResizing = false;
+
+// --- Sample content ---
+const SAMPLE = `# Markdown & AI to Word Converter
+
+Добро пожаловать в конвертер **Markdown** в \`DOCX\`.
+
+## Возможности
+
+- **Жирный текст** и *курсив*
+- \`Инлайн-код\` и ~~зачёркнутый текст~~
+- [Ссылки](https://example.com)
+- Изображения: ![Alt](https://via.placeholder.com/150x50/4A90D9/fff?text=Example)
+
+## Таблицы
+
+| Язык | Уровень | Применение |
+|------|---------|------------|
+| Python | ★★★★★ | Data Science |
+| JavaScript | ★★★★☆ | Web |
+| C++ | ★★★☆☆ | Systems |
+
+## LaTeX-формулы
+
+Инлайн: формула Эйнштейна $E = mc^2$
+
+$$\\int_{a}^{b} f(x) \\, dx = F(b) - F(a)$$
+
+Альтернативный синтаксис: \\(\\alpha + \\beta = \\gamma\\) и \\[\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}\\]
+
+## Код
+
+\`\`\`python
+def hello(name: str) -> str:
+    """Greet someone."""
+    return f"Hello, {name}!"
+\`\`\`
+
+## Списки
+
+1. Первый пункт
+2. Второй пункт
+   - Вложенный пункт A
+   - Вложенный пункт B
+3. Третий пункт
+
+> Цитата: «Хороший код — самодокументируемый».
+`;
+
+// --- Render ---
+function render() {
+  let text = editor.value;
+  text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) =>
+    '$$' + inner.replace(/\n/g, ' ') + '$$'
+  );
+  text = text.replace(/\\\[([\s\S]*?)\\\]/g, (_, inner) =>
+    '\\[' + inner.replace(/\n/g, ' ') + '\\]'
+  );
+
+  // Double backslashes so marked outputs \( \) \[ \] literally
+  const B = String.fromCharCode(92);
+  text = text.replace(/\\\(/g, B + B + '(');
+  text = text.replace(/\\\)/g, B + B + ')');
+  text = text.replace(/\\\[/g, B + B + '[');
+  text = text.replace(/\\\]/g, B + B + ']');
+
+  const html = marked.parse(text);
+
+  preview.innerHTML = html;
+
+  renderMathInElement(preview, {
+    delimiters: [
+      { left: '$$', right: '$$', display: true },
+      { left: '$', right: '$', display: false },
+      { left: '\\[', right: '\\]', display: true },
+      { left: '\\(', right: '\\)', display: false }
+    ],
+    throwOnError: false
+  });
+
+  preview.querySelectorAll('pre code').forEach(block => {
+    block.style.display = 'block';
+    block.style.overflow = 'auto';
+  });
+
+  charCount.textContent = `${text.length} символов`;
+}
+
+function scheduleRender() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => {
+    try {
+      render();
+      statusEl.textContent = 'Готов';
+    } catch (e) {
+      statusEl.textContent = 'Ошибка рендера';
+    }
+  }, 200);
+  statusEl.textContent = 'Рендеринг...';
+}
+
+// --- Resizer ---
+resizer.addEventListener('mousedown', (e) => {
+  isResizing = true;
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isResizing) return;
+  const container = document.querySelector('.container');
+  const rect = container.getBoundingClientRect();
+  const pct = ((e.clientX - rect.left) / rect.width) * 100;
+  const clamped = Math.max(20, Math.min(80, pct));
+  document.querySelector('.panel-left').style.flex = `${clamped}`;
+  document.querySelector('.panel-right').style.flex = `${100 - clamped}`;
+});
+
+document.addEventListener('mouseup', () => {
+  if (isResizing) {
+    isResizing = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+});
+
+// --- Actions ---
+async function downloadDocx() {
+  const text = editor.value.trim();
+  if (!text) {
+    showToast('Нет текста для конвертации');
+    return;
+  }
+
+  downloadBtn.disabled = true;
+  downloadBtn.textContent = 'Конвертация...';
+
+  try {
+    const resp = await fetch('/convert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown: text })
+    });
+
+    if (!resp.ok) throw new Error('Ошибка сервера');
+
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'document.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('DOCX успешно скачан');
+  } catch (e) {
+    showToast('Ошибка: ' + e.message);
+  } finally {
+    downloadBtn.disabled = false;
+    downloadBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Скачать DOCX';
+  }
+}
+
+function loadSample() {
+  editor.value = SAMPLE;
+  scheduleRender();
+}
+
+function clearAll() {
+  editor.value = '';
+  preview.innerHTML = '<div class="placeholder">Начните вводить Markdown слева...</div>';
+  charCount.textContent = '0 символов';
+  statusEl.textContent = 'Готов';
+}
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._hide);
+  toast._hide = setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// --- Events ---
+editor.addEventListener('input', scheduleRender);
+
+marked.setOptions({
+  gfm: true,
+  breaks: false,
+  headerIds: false,
+  smartypants: true
+});
+
+// Load sample on first visit
+loadSample();
+</script>
+</body>
+</html>
