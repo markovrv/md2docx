@@ -51,6 +51,77 @@ def _strip_ns(tag: str) -> str:
     return tag.split('}', 1)[1] if '}' in tag else tag
 
 
+_FENCE_PAIRS = {'(': ')', '[': ']', '{': '}', '|': '|', '\u2016': '\u2016'}
+
+
+def _find_matching_close(children, start_idx):
+    opener = children[start_idx].text.strip() if children[start_idx].text else ''
+    expected_close = _FENCE_PAIRS.get(opener)
+    depth = 0
+    for i in range(start_idx, len(children)):
+        c = children[i]
+        if _strip_ns(c.tag) == 'mo' and c.text:
+            t = c.text.strip()
+            if expected_close and t == expected_close and depth > 0:
+                depth -= 1
+                if depth == 0:
+                    return i
+            elif t == opener:
+                depth += 1
+    return None
+
+
+def _make_delimiter(beg_val, end_val, inner_children):
+    d = _m_elem('d')
+    dPr = _m_elem('dPr', d)
+    _m_attr(_m_elem('begChr', dPr), 'val', _unentity(beg_val))
+    _m_attr(_m_elem('endChr', dPr), 'val', _unentity(end_val))
+    if inner_children:
+        _m_attr(_m_elem('grow', dPr), 'val', '1')
+        _m_attr(_m_elem('shp', dPr), 'val', 'match')
+        e = _m_elem('e', d)
+        for ic in inner_children:
+            for cc in _convert(ic):
+                e.append(cc)
+    return d
+
+
+def _group_fences(children):
+    result = []
+    i = 0
+    n = len(children)
+    while i < n:
+        c = children[i]
+
+        # Already an OMML element (from nested fence) — pass through
+        if isinstance(c.tag, str) and c.tag.startswith('{%s}' % MATH_NS):
+            result.append(c)
+            i += 1
+            continue
+
+        tag_name = _strip_ns(c.tag)
+
+        if tag_name == 'mo' and c.text and c.text.strip() in _FENCE_PAIRS:
+            open_char = c.text.strip()
+            close_idx = _find_matching_close(children, i)
+
+            if close_idx is not None and close_idx > i:
+                close_char = children[close_idx].text.strip()
+                d = _make_delimiter(open_char, close_char, children[i + 1:close_idx])
+                result.append(d)
+                i = close_idx + 1
+                continue
+            elif close_idx is None and i + 1 < n:
+                d = _make_delimiter(open_char, '', children[i + 1:])
+                result.append(d)
+                return result
+
+        for cc in _convert(c):
+            result.append(cc)
+        i += 1
+    return result
+
+
 def _convert(elem) -> List[etree.Element]:
     """Convert MathML element to list of OMML elements.
     Returns a list to allow flattening of groups like <mrow>."""
@@ -65,10 +136,7 @@ def _convert(elem) -> List[etree.Element]:
     children = [c for c in elem if isinstance(getattr(c, 'tag', None), str)]
 
     if tag == 'mrow':
-        result = []
-        for c in children:
-            result.extend(_convert(c))
-        return result
+        return _group_fences(children)
 
     if tag == 'mi':
         return [_m_run(_unentity(elem.text or ''), italic=True)]
@@ -174,6 +242,7 @@ def _convert(elem) -> List[etree.Element]:
         _m_attr(_m_elem('begChr', dPr), 'val', op)
         _m_attr(_m_elem('endChr', dPr), 'val', cl)
         _m_attr(_m_elem('grow', dPr), 'val', '1')
+        _m_attr(_m_elem('shp', dPr), 'val', 'match')
         for c in children:
             ce = _m_elem('e', d)
             for cc in _convert(c):
@@ -207,22 +276,47 @@ def _convert(elem) -> List[etree.Element]:
         return [upp]
 
     if tag == 'munderover':
-        lim = _m_elem('lim')
-        e = _m_elem('e', lim)
-        lim_e = _m_elem('lim', lim)
+        # Nest limUpp inside limLow: limLow(limUpp(base, upper), lower)
+        lim_upp = _m_elem('limUpp')
+        e_upp = _m_elem('e', lim_upp)
+        lim_upp_lim = _m_elem('lim', lim_upp)
+        lim_low = _m_elem('limLow')
+        e_low = _m_elem('e', lim_low)
+        lim_low_lim = _m_elem('lim', lim_low)
         for i, c in enumerate(children):
             if i == 0:
                 for cc in _convert(c):
-                    e.append(cc)
-            elif i in (1, 2):
+                    e_upp.append(cc)
+            elif i == 1:
                 for cc in _convert(c):
-                    lim_e.append(cc)
-        return [lim]
+                    lim_low_lim.append(cc)
+            elif i == 2:
+                for cc in _convert(c):
+                    lim_upp_lim.append(cc)
+        e_low.append(lim_upp)
+        return [lim_low]
 
     if tag == 'mtable':
         m = _m_elem('m')
         mPr = _m_elem('mPr', m)
-        _m_elem('mcs', mPr)
+        _m_attr(_m_elem('baseJc', mPr), 'val', 'center')
+        mcs = _m_elem('mcs', mPr)
+
+        # Count columns from first row
+        first_tr = None
+        for child in elem:
+            if isinstance(getattr(child, 'tag', None), str) and _strip_ns(child.tag) == 'mtr':
+                first_tr = child
+                break
+        col_count = 0
+        if first_tr is not None:
+            col_count = sum(1 for td in first_tr if isinstance(getattr(td, 'tag', None), str) and _strip_ns(td.tag) == 'mtd')
+
+        for _ in range(col_count):
+            mc = _m_elem('mc', mcs)
+            mcPr = _m_elem('mcPr', mc)
+            _m_attr(_m_elem('mcJc', mcPr), 'val', 'center')
+
         for tr in elem:
             if not isinstance(getattr(tr, 'tag', None), str) or _strip_ns(tr.tag) != 'mtr':
                 continue
@@ -235,11 +329,8 @@ def _convert(elem) -> List[etree.Element]:
                     me.append(cc)
         return [m]
 
-    if tag in ('mpadded', 'mstyle', 'mphantom'):
-        result = []
-        for c in children:
-            result.extend(_convert(c))
-        return result
+    if tag in ('mpadded', 'mstyle', 'mphantom', 'mtd', 'mtr'):
+        return _group_fences(children)
 
     if tag == 'menclose':
         box = _m_elem('borderBox')
@@ -267,10 +358,8 @@ def mathml_to_omml(mathml: str) -> Optional[etree.Element]:
 
     display = root.get('display', 'inline') == 'block'
 
-    content = []
-    for c in root:
-        if isinstance(getattr(c, 'tag', None), str):
-            content.extend(_convert(c))
+    top_children = [c for c in root if isinstance(getattr(c, 'tag', None), str)]
+    content = _group_fences(top_children)
 
     if not content:
         return None

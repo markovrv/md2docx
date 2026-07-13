@@ -103,7 +103,7 @@ class MarkdownToDocx:
                 if img:
                     self.formula_images[ph] = img
             counter[0] += 1
-            return '\n' + ph + '\n'
+            return '\n\n' + ph + '\n\n'
 
         def repl_inline(m):
             formula = m.group(1).strip()

@@ -5,16 +5,16 @@
 }
 
 :root {
-  --bg: #1e1e2e;
-  --bg2: #252536;
-  --bg3: #2d2d44;
-  --fg: #cdd6f4;
-  --fg2: #a6adc8;
+  --bg: #f5f6f8;
+  --bg2: #ffffff;
+  --bg3: #e9ecef;
+  --fg: #212529;
+  --fg2: #6c757d;
   --accent: #4A90D9;
-  --accent-hover: #5ba0e9;
-  --border: #3a3a52;
-  --success: #a6e3a1;
-  --error: #f38ba8;
+  --accent-hover: #3a7bc8;
+  --border: #dee2e6;
+  --success: #28a745;
+  --error: #dc3545;
   --radius: 8px;
   --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
   --mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
@@ -194,18 +194,18 @@ textarea#editor::-webkit-scrollbar,
 
 textarea#editor::-webkit-scrollbar-track,
 .preview::-webkit-scrollbar-track {
-  background: var(--bg);
+  background: #e9ecef;
 }
 
 textarea#editor::-webkit-scrollbar-thumb,
 .preview::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: #adb5bd;
   border-radius: 4px;
 }
 
 textarea#editor::-webkit-scrollbar-thumb:hover,
 .preview::-webkit-scrollbar-thumb:hover {
-  background: var(--fg2);
+  background: #6c757d;
 }
 
 /* Preview */
@@ -226,34 +226,34 @@ textarea#editor::-webkit-scrollbar-thumb:hover,
 }
 
 /* Preview typography */
-.preview h1 { font-size: 26px; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #eee; color: #1a1a2e; font-weight: 700; }
-.preview h2 { font-size: 20px; margin: 24px 0 12px 0; padding-bottom: 6px; border-bottom: 1px solid #eee; color: #1a1a2e; font-weight: 600; }
-.preview h3 { font-size: 17px; margin: 20px 0 8px 0; color: #2a2a3e; font-weight: 600; }
-.preview h4 { font-size: 15px; margin: 16px 0 6px 0; color: #2a2a3e; font-weight: 600; }
-.preview h5, .preview h6 { font-size: 14px; margin: 12px 0 6px 0; color: #3a3a4e; font-weight: 600; }
+.preview h1 { font-size: 26px; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid var(--border); color: var(--fg); font-weight: 700; }
+.preview h2 { font-size: 20px; margin: 24px 0 12px 0; padding-bottom: 6px; border-bottom: 1px solid var(--border); color: var(--fg); font-weight: 600; }
+.preview h3 { font-size: 17px; margin: 20px 0 8px 0; color: var(--fg); font-weight: 600; }
+.preview h4 { font-size: 15px; margin: 16px 0 6px 0; color: var(--fg); font-weight: 600; }
+.preview h5, .preview h6 { font-size: 14px; margin: 12px 0 6px 0; color: var(--fg); font-weight: 600; }
 .preview p { margin: 0 0 10px 0; }
 .preview strong { font-weight: 700; }
 .preview em { font-style: italic; }
 .preview code {
   font-family: var(--mono);
   font-size: 13px;
-  background: #f0f0f5;
+  background: #f0f1f3;
   padding: 2px 6px;
   border-radius: 3px;
   color: #d63384;
 }
 .preview pre {
   margin: 12px 0;
-  background: #f5f5fa;
+  background: #f0f1f3;
   border-radius: 6px;
   padding: 14px 16px;
   overflow-x: auto;
-  border: 1px solid #e8e8ee;
+  border: 1px solid var(--border);
 }
 .preview pre code {
   background: none;
   padding: 0;
-  color: #1a1a2e;
+  color: var(--fg);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -263,8 +263,8 @@ textarea#editor::-webkit-scrollbar-thumb:hover,
   margin: 12px 0;
   padding: 8px 16px;
   border-left: 4px solid var(--accent);
-  background: #f8f9ff;
-  color: #555;
+  background: #f0f1f3;
+  color: var(--fg2);
 }
 .preview blockquote p { margin: 0; }
 .preview ul, .preview ol { margin: 8px 0 8px 24px; }
@@ -276,18 +276,18 @@ textarea#editor::-webkit-scrollbar-thumb:hover,
   font-size: 13px;
 }
 .preview th, .preview td {
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   padding: 8px 12px;
   text-align: left;
 }
 .preview th {
-  background: #f5f5fa;
+  background: var(--bg3);
   font-weight: 600;
 }
-.preview tr:nth-child(even) { background: #fafafc; }
-.preview hr { border: none; border-top: 2px solid #eee; margin: 20px 0; }
+.preview tr:nth-child(even) { background: #f8f9fa; }
+.preview hr { border: none; border-top: 2px solid var(--border); margin: 20px 0; }
 .preview img { max-width: 100%; border-radius: 4px; }
-.preview del { text-decoration: line-through; color: #999; }
+.preview del { text-decoration: line-through; color: var(--fg2); }
 
 /* Toast */
 .toast {
@@ -295,11 +295,12 @@ textarea#editor::-webkit-scrollbar-thumb:hover,
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(80px);
-  background: var(--bg3);
+  background: var(--bg2);
   color: var(--fg);
   padding: 10px 24px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   font-size: 13px;
   opacity: 0;
   transition: all 0.3s;

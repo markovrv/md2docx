@@ -120,19 +120,23 @@ def hello(name: str) -> str:
 // --- Render ---
 function render() {
   let text = editor.value;
-  text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) =>
-    '$$' + inner.replace(/\n/g, ' ') + '$$'
-  );
+  // Convert \( ... \) to $ ... $ and \[ ... \] to $$ ... $$
   text = text.replace(/\\\[([\s\S]*?)\\\]/g, (_, inner) =>
-    '\\[' + inner.replace(/\n/g, ' ') + '\\]'
+    '$$' + inner + '$$'
+  );
+  text = text.replace(/\\\(([\s\S]*?)\\\)/g, (_, inner) =>
+    '$' + inner + '$'
   );
 
-  // Double backslashes so marked outputs \( \) \[ \] literally
-  const B = String.fromCharCode(92);
-  text = text.replace(/\\\(/g, B + B + '(');
-  text = text.replace(/\\\)/g, B + B + ')');
-  text = text.replace(/\\\[/g, B + B + '[');
-  text = text.replace(/\\\]/g, B + B + ']');
+  // Double backslashes inside $$ blocks (display math) + flatten newlines
+  text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) =>
+    '$$' + inner.replace(/\n/g, ' ').replace(/\\/g, '\\\\') + '$$'
+  );
+
+  // Double backslashes inside $ blocks (inline math, no newlines)
+  text = text.replace(/(?<!\$)\$(?!\$)([^$\n]+?)(?<!\$)\$(?!\$)/g, (_, inner) =>
+    '$' + inner.replace(/\\/g, '\\\\') + '$'
+  );
 
   const html = marked.parse(text);
 
@@ -141,9 +145,7 @@ function render() {
   renderMathInElement(preview, {
     delimiters: [
       { left: '$$', right: '$$', display: true },
-      { left: '$', right: '$', display: false },
-      { left: '\\[', right: '\\]', display: true },
-      { left: '\\(', right: '\\)', display: false }
+      { left: '$', right: '$', display: false }
     ],
     throwOnError: false
   });
